@@ -1,65 +1,71 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
-	"time"
-
-	"github.com/jlaffaye/ftp"
+	"os"
 )
 
 func main() {
-	//폴더 조회 및 생성
-	// var folder string
-	// var fileName string
-	// var fileContent string
 
-	//FTP 연결
-	c, err := ftp.Dial("127.0.0.1:21", ftp.DialWithTimeout(5*time.Second))
-	if err != nil {
-		log.Fatal(err)
-	}
+	var path string
+	fmt.Print("path:")
+	fmt.Scanln(&path)
 
-	//FTP 서버 인증
-	err = c.Login("tester", "tester")
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = c.MakeDir("test3")
-
+	files, err := ioutil.ReadDir(path)
 	if err != nil {
 		panic(err)
 	}
 
-	list, err := c.NameList("test3")
-
-	for _, line := range list {
-		fmt.Println(line)
+	for _, f := range files {
+		fmt.Println(f.Name())
 	}
 
-	// 버퍼를 생성해서 파일 저장
-	data := bytes.NewBufferString("Hello World")
-	err = c.Stor("test-file.txt", data)
+	var file string
+	fmt.Print("파일명:")
+	fmt.Scanln(&file)
+
+	bytes, err := ioutil.ReadFile(path + "/" + file)
 	if err != nil {
-		log.Fatal(err)
 		panic(err)
 	}
 
-	// 파일 읽어오기
-	r, err := c.Retr("test-file.txt")
+	fmt.Printf("File contents: %s", bytes)
+
+	files2, err := ioutil.ReadDir("./")
 	if err != nil {
-		log.Fatal(err)
 		panic(err)
 	}
-	defer r.Close()
 
-	buf, err := ioutil.ReadAll(r)
-	println(string(buf))
-
-	//FTP 연결 해제
-	if err := c.Quit(); err != nil {
-		log.Fatal(err)
+	for _, f := range files2 {
+		fmt.Println(f.Name())
 	}
+
+	var file2_nm string
+	fmt.Print("파일명:")
+	fmt.Scanln(&file2_nm)
+
+	file2, err := os.Open(file2_nm)
+	if err != nil {
+		panic(err)
+	}
+
+	file2_info, err := file2.Stat()
+	if err != nil {
+		panic(err)
+	}
+
+	file2_size := file2_info.Size()
+	buffer := make([]byte, file2_size)
+
+	bytesread, err := file2.Read(buffer)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("bytes read: ", bytesread)
+	fmt.Println("bytestream to string: ", string(buffer))
+
+	defer file2.Close()
+
 }
