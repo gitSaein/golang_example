@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -31,15 +32,18 @@ func main() {
 	}
 
 	fmt.Printf("File contents: %s", bytes)
+	fmt.Println("")
 
 	files2, err := ioutil.ReadDir("./")
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("==================================")
 
 	for _, f := range files2 {
 		fmt.Println(f.Name())
 	}
+	fmt.Println("==================================")
 
 	var file2_nm string
 	fmt.Print("파일명:")
@@ -67,5 +71,13 @@ func main() {
 	fmt.Println("bytestream to string: ", string(buffer))
 
 	defer file2.Close()
+	fmt.Println("==================================")
+
+	fmt.Println("==================================")
+
+	slice := strings.Split(string(buffer), ":")
+	for _, str := range slice {
+		fmt.Println(str)
+	}
 
 }
