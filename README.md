@@ -1,7 +1,7 @@
-go\bin 설치 파일이 저장됨
+텍스트 기반의 TODO list 프로그램을 만든다.
 
+저장소는 파일 기반으로 진행한다.
 
+저장 데이터 구조체는 스스로.
 
-issue. 
-1) "go cannot find main module vs code"
-  resolve>  go env -w GO111MODULE=auto
+기본적인 CRUD 가 작성되면 네트워크 프로그램으로 발전시켜 원격에서 CRUD 하도록 변경.
