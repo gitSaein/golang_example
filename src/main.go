@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -13,15 +14,24 @@ import (
 const FILE_PATH = "./tmp/todoList.json"
 
 type Todos struct {
-	Todos []Todo `json:"todos"`
+	Todos   []Todo `json:"todos"`
+	LastIdx int    `json:"last_idx"`
 }
 
 type Todo struct {
 	ID        int       `json:"id"`
 	Content   string    `json:"content"`
 	IsDone    bool      `json:"is_done"`
-	IsDeleted bool      `json:"is_deleted"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+func IndexOf(todos []Todo, targetIdx int) int {
+	for i, todo := range todos {
+		if todo.ID == targetIdx {
+			return i
+		}
+	}
+	return -1
 }
 
 // 생성
@@ -29,9 +39,7 @@ type Todo struct {
 // 2.2. !exit 입력하면, 취소되고 home으로 돌아간다.
 func createTodo(data Todos) Todos {
 	var cmdInput string
-	var isExit = false
-
-	for !isExit {
+	for {
 
 		fmt.Println("[add] add item ================================")
 		fmt.Print("Add item> ")
@@ -41,72 +49,66 @@ func createTodo(data Todos) Todos {
 			return data
 		}
 
-		lenOfData := len(data.Todos)
-		data.Todos = append(data.Todos, Todo{ID: lenOfData + 1, Content: cmdInput, IsDone: false, CreatedAt: time.Now()})
-	}
+		data.LastIdx += 1
+		data.Todos = append(data.Todos, Todo{ID: data.LastIdx, Content: cmdInput, IsDone: false, CreatedAt: time.Now()})
+		return data
 
-	return data
+	}
 }
 
 // 완료
 // 3.  c or complate 입력하면,  리스트를 불러오고, index를 입력하면 완료 표시한다.
 // 3.1. !exit 입력하면, 취소되고 home으로 돌아간다.
-func completeTodo(data Todos) Todos {
+func completeTodo(data Todos) (Todos, error) {
 	var cmdInput string
-	var isExit = false
-
-	for !isExit {
+	for {
 
 		getTodoList(data, "complete")
 		fmt.Print("complate item > ")
 		fmt.Scanln(&cmdInput)
 
 		if cmdInput == "!exit" {
-			return data
+			return data, nil
 		}
+
 		idx, err := strconv.Atoi(cmdInput)
-		if err != nil || idx > len(data.Todos) {
-			continue
+		if err != nil {
+			return data, err
 		}
-
-		data.Todos[len(data.Todos)-idx].IsDone = !data.Todos[len(data.Todos)-idx].IsDone
-
+		targetIdx := IndexOf(data.Todos, idx)
+		if targetIdx < 0 {
+			return data, errors.New("out of range")
+		}
+		data.Todos[targetIdx].IsDone = !data.Todos[targetIdx].IsDone
+		return data, nil
 	}
 
-	return data
 }
 
 // 삭제
 // 4.  d or delete 입력하면,  리스트를 불러오고, index를 입력하면 완료 표시한다.
 // 4.1. !exit 입력하면, 취소되고 home으로 돌아간다.
-func deleteTodo(data Todos) Todos {
+func deleteTodo(data Todos) (Todos, error) {
 	var cmdInput string
-	var isExit = false
 
-	for !isExit {
+	for {
 
 		getTodoList(data, "delete")
 		fmt.Print("delete item > ")
 		fmt.Scanln(&cmdInput)
 
 		if cmdInput == "!exit" {
-			return data
+			return data, nil
 		}
 		cmdInputToInt, err := strconv.Atoi(cmdInput)
-		if err != nil || cmdInputToInt > len(data.Todos) {
-			continue
-		}
-		// idx := len(data.Todos) - cmdInputToInt
-		// data.Todos = append(data.Todos[:idx], data.Todos[idx+1:]...)
-		for i, todo := range data.Todos {
-			if todo.ID == cmdInputToInt {
-				data.Todos[i].IsDeleted = true
-			}
+		if err != nil {
+			return data, err
 		}
 
+		targetIdx := IndexOf(data.Todos, cmdInputToInt)
+		data.Todos = append(data.Todos[:targetIdx], data.Todos[targetIdx+1:]...)
+		return data, nil
 	}
-
-	return data
 
 }
 
@@ -126,10 +128,6 @@ func getTodoList(data Todos, pagename string) {
 		})
 
 		for i := 0; i < lenOfData; i++ {
-
-			if data.Todos[i].IsDeleted {
-				continue
-			}
 
 			if data.Todos[i].IsDone {
 				fmt.Printf("%d. (%s) ", data.Todos[i].ID, "V")
@@ -154,7 +152,8 @@ func readFile() Todos {
 
 		err := ioutil.WriteFile(FILE_PATH, []byte(""), 0644)
 		if err != nil {
-			fmt.Println(err.Error())
+			fmt.Printf("err: %s", err.Error())
+			return data
 		}
 	} else if err != nil {
 		fmt.Println(err.Error())
@@ -167,30 +166,59 @@ func readFile() Todos {
 
 }
 
-// 파일 읽어오기
-func writeTodoListFile(todos Todos) (Todos, error) {
+// 파일 쓰기
+func writeTodoListFile(todos Todos) error {
 	jsonTodos, err := json.Marshal(todos)
 	if err != nil {
-		return todos, err
+		return err
 	}
 	err = ioutil.WriteFile(FILE_PATH, []byte(jsonTodos), 0644)
-
-	return todos, err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // 명령어 확인하기
 func checkCmdInput(input string, todos Todos) {
+	var errorByService error
 	switch {
 	case input == "a" || input == "add":
 		todoList := createTodo(todos)
-		writeTodoListFile(todoList)
+		err := writeTodoListFile(todoList)
+		if err != nil {
+			errorByService = err
+			break
+		}
 	case input == "c" || input == "complete":
-		todoList := completeTodo(todos)
-		writeTodoListFile(todoList)
+		todoList, err := completeTodo(todos)
+		if err != nil {
+			errorByService = err
+			break
+		}
+		err = writeTodoListFile(todoList)
+		if err != nil {
+			break
+		}
 	case input == "d" || input == "delete":
-		todoList := deleteTodo(todos)
+		todoList, err := deleteTodo(todos)
+		if err != nil {
+			errorByService = err
+			break
+		}
 		writeTodoListFile(todoList)
+		err = writeTodoListFile(todoList)
+		if err != nil {
+			errorByService = err
+			break
+		}
 	default:
+		errorByService = errors.New("cmd 입력 값 오류")
+	}
+
+	if errorByService != nil {
+		fmt.Printf("err: %s", errorByService.Error())
+		fmt.Println()
 	}
 
 }
