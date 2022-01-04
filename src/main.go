@@ -198,6 +198,7 @@ func checkCmdInput(input string, todos Todos) {
 		}
 		err = writeTodoListFile(todoList)
 		if err != nil {
+			errorByService = err
 			break
 		}
 	case input == "d" || input == "delete":
